@@ -17,25 +17,57 @@ What's new
 Version 1.5  (Source - GitHub)
 -------------------------------
 
-🚀 Enhancements
-^^^^^^^^^^^^^^^
+Enhancements
+~~~~~~~~~~~~
+- None yet.
 
-🧐 API and behavior changes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+API changes
+~~~~~~~~~~~
+- None yet.
 
-🛠 Requirements
-^^^^^^^^^^^^^^^
+Requirements
+~~~~~~~~~~~~
+- None yet.
 
-🪲 Bug fixes
-^^^^^^^^^^^^
+Bugs
+~~~~
+- None yet.
 
-⚕️ Code health
-^^^^^^^^^^^^^^
+Code health
+~~~~~~~~~~~
+- None yet.
 
 
 
-Version 1.4.2  (Stable - PyPi)
---------------------------------------
+Version 1.4.3 (Stable - PyPi)
+-------------------------------
+
+Enhancements
+~~~~~~~~~~~~
+- Add “Open in Colab” buttons for gallery examples (:gh:`853` by `Bruno Aristimunha`_)
+- Refresh docs homepage design and citation visibility (:gh:`853` by `Bruno Aristimunha`_)
+- Add :class:`moabb.datasets.preprocessing.FixedPipeline` and :func:`moabb.datasets.preprocessing.make_fixed_pipeline` to avoid scikit-learn unfitted pipeline warnings (:gh:`850` by `Bruno Aristimunha`_)
+
+API changes
+~~~~~~~~~~~
+- None.
+
+Requirements
+~~~~~~~~~~~~
+- Improve compatibility with Python 3.14 (:gh:`848` by `Bruno Aristimunha`_)
+
+Bugs
+~~~~
+- Fixing warnings from the latest scikit-learn version within the Preprocessing logic (:gh:`850` by `Bruno Aristimunha`_)
+- Fixing compatibility with Scikit-learn 1.8 (:gh:`852` by `Bruno Aristimunha`_)
+
+Code health
+~~~~~~~~~~~
+- Generate notebooks in docs CI for Colab integration (:gh:`853` by `Bruno Aristimunha`_)
+
+
+Version 1.4.2
+---------------
 
 Enhancements
 ~~~~~~~~~~~~
@@ -43,12 +75,14 @@ Enhancements
 - Improve compute_pvals_perm function (:gh:`818` by `Quentin Barthelemy`_)
 
 Bugs
+~~~~
 - Fixes the management of include/exclude datasets in :func:`moabb.benchmark`, adds additional verifications (:gh:`834` by `Anton Andreev`_)
 - Fixing pagination issue with figshare (:gh:`839` by `Bruno Aristimunha`_)
+- Fixes :class:`moabb.datasets.preprocessing.SetRawAnnotations` in case no STIM channel is present (:gh:`838` by `Pierre Guetschel`_ and `Simon Kojima`_)
 
-~~~~
 API changes
 ~~~~~~~~~~~
+- None.
 
 
 
@@ -68,8 +102,8 @@ Bugs
 - Fix the :class:`moabb.datasets.Dreyer2023` (:gh:`828` by `Simon Kojima`_)
 
 API changes
-
 ~~~~~~~~~~~
+- None.
 
 
 Version  - 1.3
@@ -644,3 +678,4 @@ API changes
 .. _Griffin Keeler: https://github.com/griffinkeeler
 .. _Kosei Nakada: https://github.com/ponpopon
 .. _Romani Michele: https://github.com/BRomans
+.. _Lionel Kusch: https://github.com/lionelkusch

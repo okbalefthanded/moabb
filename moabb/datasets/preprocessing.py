@@ -6,11 +6,61 @@ from typing import Dict, List, Tuple, Union
 import mne
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.pipeline import FunctionTransformer, Pipeline
-from sklearn.utils._repr_html.estimator import _VisualBlock
+from sklearn.pipeline import FunctionTransformer, Pipeline, _name_estimators
+
+
+# Handle different scikit-learn versions for _VisualBlock import
+# sklearn >= 1.6 moved _VisualBlock to sklearn.utils._repr_html.estimator
+# sklearn < 1.6 has it in sklearn.utils._estimator_html_repr
+try:
+    from sklearn.utils._repr_html.estimator import _VisualBlock
+except (ImportError, ModuleNotFoundError):
+    try:
+        from sklearn.utils._estimator_html_repr import _VisualBlock
+    except (ImportError, ModuleNotFoundError):
+        # Fallback: create a dummy _VisualBlock for older sklearn versions
+        # that don't have HTML representation support
+        _VisualBlock = None
 
 
 log = logging.getLogger(__name__)
+
+
+class FixedPipeline(Pipeline):
+    """A Pipeline that is always considered fitted.
+
+    This is useful for pre-processing pipelines that don't require fitting,
+    as they only apply fixed transformations (e.g., filtering, epoching).
+    This avoids the FutureWarning from sklearn 1.8+ about unfitted pipelines.
+    """
+
+    def __sklearn_is_fitted__(self):
+        """Return True to indicate this pipeline is always considered fitted."""
+        return True
+
+
+def make_fixed_pipeline(*steps, memory=None, verbose=False):
+    """Create a FixedPipeline that is always considered fitted.
+
+    This is a drop-in replacement for sklearn's make_pipeline that creates
+    a pipeline marked as fitted, suitable for fixed transformations.
+
+    Parameters
+    ----------
+    *steps : list of estimators
+        List of (name, transform) tuples that are chained in the pipeline.
+    memory : str or object with the joblib.Memory interface, default=None
+        Used to cache the fitted transformers of the pipeline.
+    verbose : bool, default=False
+        If True, the time elapsed while fitting each step will be printed.
+
+    Returns
+    -------
+    p : FixedPipeline
+        A FixedPipeline object.
+    """
+
+    return FixedPipeline(_name_estimators(steps), memory=memory, verbose=verbose)
 
 
 def _is_none_pipeline(pipeline):
@@ -44,9 +94,16 @@ class ForkPipelines(TransformerMixin, BaseEstimator):
     def fit(self, X, y=None):
         for _, t in self.transformers:
             t.fit(X)
+        return self
+
+    def __sklearn_is_fitted__(self):
+        """Return True to indicate this transformer is always considered fitted."""
+        return True
 
     def _sk_visual_block_(self):
-        """Tell sklearn’s diagrammer to lay us out in parallel."""
+        """Tell sklearn's diagrammer to lay us out in parallel."""
+        if _VisualBlock is None:
+            return NotImplemented
         names, estimators = zip(*self.transformers)
         return _VisualBlock(
             kind="parallel",
@@ -65,10 +122,16 @@ class FixedTransformer(TransformerMixin, BaseEstimator):
         # when using the pipeline
 
     def fit(self, X, y=None):
-        pass
+        return self
+
+    def __sklearn_is_fitted__(self):
+        """Return True to indicate this transformer is always considered fitted."""
+        return True
 
     def _sk_visual_block_(self):
-        """Tell sklearn’s diagrammer to lay us out in parallel."""
+        """Tell sklearn's diagrammer to lay us out in parallel."""
+        if _VisualBlock is None:
+            return NotImplemented
         return _VisualBlock(
             kind="parallel",
             name_caption=str(self.__class__.__name__),
@@ -103,6 +166,7 @@ class SetRawAnnotations(FixedTransformer):
     """
 
     def __init__(self, event_id, interval: Tuple[float, float]):
+        super().__init__()
         assert isinstance(event_id, dict)  # not None
         self.event_id = event_id
         values = _get_event_id_values(self.event_id)
@@ -116,11 +180,20 @@ class SetRawAnnotations(FixedTransformer):
         offset = int(self.interval[0] * raw.info["sfreq"])
         stim_channels = mne.utils._get_stim_channel(None, raw.info, raise_error=False)
         if len(stim_channels) == 0:
-            log.warning(
-                "No stim channel nor annotations found, skipping setting annotations."
+            if raw.annotations is None:
+                log.warning(
+                    "No stim channel nor annotations found, skipping setting annotations."
+                )
+                return raw
+            if not all(isinstance(mrk, int) for mrk in self.event_id.values()):
+                raise ValueError(
+                    "When no stim channel is present, event_id values must be integers (not lists)."
+                )
+            events, _ = mne.events_from_annotations(
+                raw, event_id=self.event_id, verbose=False
             )
-            return raw
-        events = mne.find_events(raw, shortest_event=0, verbose=False)
+        else:
+            events = mne.find_events(raw, shortest_event=0, verbose=False)
         events = _unsafe_pick_events(events, include=_get_event_id_values(self.event_id))
         events[:, 0] += offset
         if len(events) != 0:
@@ -144,6 +217,7 @@ class RawToEvents(FixedTransformer):
     """
 
     def __init__(self, event_id: dict[str, int], interval: Tuple[float, float]):
+        super().__init__()
         assert isinstance(event_id, dict)  # not None
         self.event_id = event_id
         self.interval = interval
@@ -203,6 +277,7 @@ class RawToFixedIntervalEvents(FixedTransformer):
         stop_offset,
         marker=1,
     ):
+        super().__init__()
         self.length = length
         self.stride = stride
         self.start_offset = start_offset
@@ -236,12 +311,16 @@ class RawToFixedIntervalEvents(FixedTransformer):
 
 
 class EpochsToEvents(FixedTransformer):
+    def __init__(self):
+        super().__init__()
+
     def transform(self, epochs, y=None):
         return epochs.events
 
 
 class EventsToLabels(FixedTransformer):
     def __init__(self, event_id):
+        super().__init__()
         self.event_id = event_id
 
     def transform(self, events, y=None):
@@ -260,6 +339,7 @@ class RawToEpochs(FixedTransformer):
         channels: List[str] = None,
         interpolate_missing_channels: bool = False,
     ):
+        super().__init__()
         assert isinstance(event_id, dict)  # not None
         self.event_id = event_id
         self.tmin = tmin
@@ -342,6 +422,8 @@ class NamedFunctionTransformer(FunctionTransformer):
         return self._display_name
 
     def _sk_visual_block_(self):
+        if _VisualBlock is None:
+            return NotImplemented
         return _VisualBlock(
             kind="single",
             estimators=self,
